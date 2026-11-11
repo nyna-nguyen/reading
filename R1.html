@@ -149,6 +149,35 @@ select.sel{border:1.5px solid var(--line);background:var(--card);border-radius:9
   #top{gap:6px;padding:6px 8px}.tbtn{padding:5px 9px}.timer{min-width:54px}
   .para{font-size:17px}
 }
+.pane.qq{padding:10px 14px 16px}
+.grp{margin-bottom:8px}
+.instr{padding:5px 10px;font-size:13.5px;margin-bottom:2px;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.instr b.r{display:inline;font-size:14.5px;margin:0;white-space:nowrap}
+.instr>span{flex:1}
+.instr .full,.instr .hlist{flex-basis:100%}
+.instr .full{border-top:1px dashed #b9d9d9;padding-top:4px;margin-top:2px}
+.instr .full.off{display:none}
+.ib{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--acc);background:none;color:var(--acc);font-weight:700;font-size:12px;padding:0;font-style:italic;font-family:Georgia,serif}
+.hlist{margin:2px 0 0;font-size:14px}.hlist li{padding:0;line-height:1.45}
+.q{padding:6px 0;gap:8px}
+.qn{width:26px;height:26px;font-size:13px}
+.qrow{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap}
+.qrow .qt{flex:1 1 180px;margin:0}
+.qt{font-size:15.5px;line-height:1.4}
+.seg{gap:4px;flex-wrap:nowrap}
+.seg button{padding:5px 8px;font-size:12.5px;white-space:nowrap}
+.opts{grid-template-columns:1fr 1fr;gap:5px;margin-top:5px}
+.opt{padding:5px 8px;font-size:14px;line-height:1.3}
+select.sel{padding:4px 8px;min-width:84px}
+.hb{margin-top:0;padding:2px 9px;font-size:12.5px;white-space:nowrap;flex:none}
+.hint{margin-top:5px;padding:3px 9px;font-size:13.5px}
+.hq{display:flex;flex-wrap:wrap;gap:0 22px;border-bottom:1px dashed var(--line)}
+.hq .q{border-bottom:0;flex:none}.hq .qrow .qt{flex:none}
+.sum{padding:8px 12px;line-height:2.05;font-size:15.5px}
+.sum h3{font-size:14.5px}
+.hrow{flex-wrap:wrap;gap:6px}
+.mark{margin-top:5px;padding:1px 8px;font-size:12.5px}
+.banner{padding:9px 12px;margin-bottom:8px}.banner h3{font-size:17px}.banner .acts{margin-top:7px}
 </style>
 </head>
 <body class="show-p">
@@ -295,9 +324,13 @@ function renderPassage(){
   var el=$('#pp'); el.innerHTML=h;
   var e=$('.ev',el); if(e) e.scrollIntoView({block:'center'});
 }
+var SHORT={tfng:'Choose TRUE, FALSE or NOT GIVEN.',gap:'Write ONE WORD ONLY from the passage.',heading:'Choose the correct heading for each paragraph.',mcq:'Choose A, B, C or D.',para:'Which paragraph contains this information?',summary:'Complete the summary. Write ONE WORD ONLY from the passage.'};
+function hintOn(st,r){return st.mode==='doing'&&getTest(V.test).kind==='try'&&r.it.hint;}
+function hintBtn(st,r,lab){ if(!hintOn(st,r)||st.hint[r.n]) return ''; return '<button class="hb" data-act="hint" data-n="'+r.n+'" title="A correct answer after a hint earns +1 xu">'+(lab||'Hint')+'</button>'; }
+function hintText(st,r,lab){ return (hintOn(st,r)&&st.hint[r.n])?'<div class="hint">'+(lab||'')+esc(r.it.hint)+'</div>':''; }
 function qWrap(st,r,inner){
-  var n=r.n, v=st.ans[n], cls='q', extra='';
-  if(st.mode==='doing') extra+=hintHtml(st,r);
+  var n=r.n, v=st.ans[n], cls='q', extra=hintText(st,r);
+  inner=inner.replace('<!--H-->',hintBtn(st,r));
   if(!editable(st,n)) cls+=' lock';
   if(st.mode!=='doing'){ var ok=correct(r.it,v);
     if(showMark(st,n)){ cls+=ok?' ok':' bad'; extra+='<div><span class="mark '+(ok?'ok':'bad')+'">'+(ok?'✓ Correct':'✗ Not correct')+'</span></div>'; }
@@ -306,7 +339,6 @@ function qWrap(st,r,inner){
   }
   return '<div class="'+cls+'" id="q-'+n+'"><div class="qn">'+n+'</div><div class="qb">'+inner+extra+'</div></div>';
 }
-function hintHtml(st,r){ if(getTest(V.test).kind!=='try'||!r.it.hint) return ''; return st.hint[r.n]?'<div class="hint">'+esc(r.it.hint)+'</div>':'<div><button class="hb" data-act="hint" data-n="'+r.n+'">Hint (then max +1 xu)</button></div>'; }
 function expHtml(r){
   return '<div class="exp"><div class="ans">Answer: '+esc(ansLabel(r))+'</div>'+lang(r.it.ex,r.it.vi)+(r.it.ev?'<button class="evb" data-act="ev" data-n="'+r.n+'">Show in passage</button>':'')+'</div>';
 }
@@ -314,6 +346,7 @@ function renderQuestions(){
   var t=getTest(V.test), st=T(V.test), p=t.passages[V.p], M=IDX[V.test].m, h='';
   if(st.mode==='checked'||st.mode==='done'){
     var N=NQ(V.test), sc=score(V.test), wrong=N-sc.tot, msg=sc.tot>=N*0.8?'Great reading!':(sc.tot>=N*0.6?'Good try. Now fix the wrong ones.':'Not yet. Read the passages again, slowly.');
+    if(st.mode==='done'&&sc.tot>=N*0.6&&sc.tot<N*0.8) msg='Good try.';
     h+='<div class="banner"><h3>'+sc.tot+' / '+N+' · '+msg+'</h3><div class="meta">Passage 1: '+sc.per[0]+'/5 · Passage 2: '+sc.per[1]+'/5 · Passage 3: '+sc.per[2]+'/5 · First try: '+firstScore(V.test)+'/'+N+' · Xu from this test: '+fmt(coinsOf(V.test))+'</div>';
     if(st.mode==='checked'){ h+='<div class="acts">'+(wrong?'<button class="big" data-act="retry">Try the '+wrong+' wrong question'+(wrong>1?'s':'')+' again</button>':'')+'<button class="ghost" data-act="reveal">Show answers and explanations</button></div>'; }
     h+='</div>';
@@ -321,23 +354,26 @@ function renderQuestions(){
     h+='<div class="banner"><h3>Second chance</h3><div class="meta">Only the red questions can be changed. Each one you fix earns 0,5 xu. Tap “Check again” when you finish.</div></div>';
   }
   p.groups.forEach(function(g){
-    h+='<div class="grp"><div class="instr"><b class="r">'+g.range+'</b>'+g.instr;
+    h+='<div class="grp"><div class="instr"><b class="r">'+g.range+'</b><span>'+SHORT[g.type]+'</span><button class="ib" data-act="instr" aria-label="Full instructions">i</button><div class="full off">'+g.instr+'</div>';
     if(g.type==='heading'){h+='<ul class="hlist">'+g.headings.map(function(x){return '<li><b>'+x[0]+'</b><span>'+esc(x[1])+'</span></li>';}).join('')+'</ul>';}
     h+='</div>';
     if(g.type==='summary'){
       h+='<div class="sum"><h3>'+esc(g.title)+'</h3>'+esc(g.text).replace(/\{(\d+)\}/g,function(_,n){return gapInput(st,M[+n],true);})+'</div>';
-      if(st.mode==='doing') g.items.forEach(function(it){var hh=hintHtml(st,M[it.n]); if(hh) h+='<div class="hrow"><span class="sn" style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700">'+it.n+'</span>'+hh+'</div>';});
+      var hs=''; g.items.forEach(function(it){var r=M[it.n]; hs+=hintBtn(st,r,'Hint '+it.n)+hintText(st,r,'<b>'+it.n+'</b> ');}); if(hs) h+='<div class="hrow">'+hs+'</div>';
       if(st.mode!=='doing') g.items.forEach(function(it){h+=qWrap(st,M[it.n],'<div class="qt">Your answer: <b>'+esc(st.ans[it.n]||'—')+'</b></div>');});
-    } else g.items.forEach(function(it){
-      var r=M[it.n], v=st.ans[it.n], dis=editable(st,it.n)?'':' disabled', inner='';
-      var rev=st.mode==='done';
-      if(g.type==='tfng'){ inner='<div class="qt">'+esc(it.q)+'</div><div class="seg">'+[['T','TRUE'],['F','FALSE'],['NG','NOT GIVEN']].map(function(o){return '<button data-act="pick" data-n="'+it.n+'" data-v="'+o[0]+'" class="'+(v===o[0]?'on':'')+(rev&&it.a===o[0]?' right':'')+'"'+dis+'>'+o[1]+'</button>';}).join('')+'</div>'; }
-      else if(g.type==='mcq'){ inner='<div class="qt">'+esc(it.q)+'</div><div class="opts">'+it.opts.map(function(o,i){var L='ABCD'[i];return '<button data-act="pick" data-n="'+it.n+'" data-v="'+L+'" class="opt'+(v===L?' on':'')+(rev&&it.a===L?' right':'')+'"'+dis+'><b>'+L+'</b><span>'+esc(o)+'</span></button>';}).join('')+'</div>'; }
-      else if(g.type==='gap'){ inner='<div class="qt">'+esc(it.q).replace('___',gapInput(st,r,false))+'</div>'; }
-      else { var vals=g.type==='heading'?g.headings.map(function(x){return x[0];}):g.letters.split('');
-        inner='<div class="qt">'+esc(it.q)+'</div><select class="sel" data-n="'+it.n+'"'+dis+'><option value="">Choose…</option>'+vals.map(function(x){return '<option'+(v===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>'; }
-      h+=qWrap(st,r,inner);
-    });
+    } else {
+      var row=g.type==='heading'&&st.mode!=='done'; if(row) h+='<div class="hq">';
+      g.items.forEach(function(it){
+        var r=M[it.n], v=st.ans[it.n], dis=editable(st,it.n)?'':' disabled', inner='', rev=st.mode==='done';
+        if(g.type==='tfng'){ inner='<div class="qrow"><div class="qt">'+esc(it.q)+'</div><div class="seg">'+[['T','TRUE'],['F','FALSE'],['NG','NOT GIVEN']].map(function(o){return '<button data-act="pick" data-n="'+it.n+'" data-v="'+o[0]+'" class="'+(v===o[0]?'on':'')+(rev&&it.a===o[0]?' right':'')+'"'+dis+'>'+o[1]+'</button>';}).join('')+'</div><!--H--></div>'; }
+        else if(g.type==='mcq'){ inner='<div class="qrow"><div class="qt">'+esc(it.q)+'</div><!--H--></div><div class="opts">'+it.opts.map(function(o,i){var L='ABCD'[i];return '<button data-act="pick" data-n="'+it.n+'" data-v="'+L+'" class="opt'+(v===L?' on':'')+(rev&&it.a===L?' right':'')+'"'+dis+'><b>'+L+'</b><span>'+esc(o)+'</span></button>';}).join('')+'</div>'; }
+        else if(g.type==='gap'){ inner='<div class="qrow"><div class="qt">'+esc(it.q).replace('___',gapInput(st,r,false))+'</div><!--H--></div>'; }
+        else { var vals=g.type==='heading'?g.headings.map(function(x){return x[0];}):g.letters.split('');
+          inner='<div class="qrow"><div class="qt">'+esc(it.q)+'</div><select class="sel" data-n="'+it.n+'"'+dis+'><option value="">Choose…</option>'+vals.map(function(x){return '<option'+(v===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select><!--H--></div>'; }
+        h+=qWrap(st,r,inner);
+      });
+      if(row) h+='</div>';
+    }
     h+='</div>';
   });
   $('#qq').innerHTML=h;
@@ -416,6 +452,7 @@ document.addEventListener('click',function(ev){
   else if(act==='pick'){ var n=+b.dataset.n; if(!editable(st,n)) return; st.ans[n]=(st.ans[n]===b.dataset.v)?'':b.dataset.v;
     [].forEach.call(b.parentElement.children,function(c){c.classList.toggle('on',c.dataset.v===st.ans[n]);}); save(); renderFoot(); }
   else if(act==='goto'){gotoQ(+b.dataset.n);}
+  else if(act==='instr'){ b.parentElement.querySelector('.full').classList.toggle('off'); }
   else if(act==='hint'){ st.hint[+b.dataset.n]=1; save(); var qs=$('#qq').scrollTop; renderQuestions(); $('#qq').scrollTop=qs; }
   else if(act==='submit'){doSubmit();}
   else if(act==='submit2'){doSubmit2();}
