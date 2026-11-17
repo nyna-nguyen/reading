@@ -184,6 +184,9 @@ select.sel{padding:4px 8px;min-width:84px}
 .hrow{flex-wrap:wrap;gap:6px}
 .mark{margin-top:5px;padding:1px 8px;font-size:12.5px}
 .banner{padding:9px 12px;margin-bottom:8px}.banner h3{font-size:17px}.banner .acts{margin-top:7px}
+#hlpop{position:fixed;z-index:40;display:none;background:var(--ink);color:#fff;border:0;border-radius:999px;padding:8px 14px;font-weight:700;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.3);white-space:nowrap}
+#hlpop.on{display:block}
+.hl.sel{outline:2.5px solid var(--bad);outline-offset:1px}
 </style>
 </head>
 <body class="show-p">
@@ -191,6 +194,7 @@ select.sel{padding:4px 8px;min-width:84px}
 <main id="app"></main>
 <div id="modal"></div>
 <div id="toast"></div>
+<button id="hlpop" data-act="hlremove">✕ Remove highlight</button>
 <script>
 (function(){
 "use strict";
@@ -319,8 +323,9 @@ function paraHtml(text,hls,ev){
   return out;
 }
 function renderPassage(){
+  var hp0=document.getElementById('hlpop'); if(hp0) hp0.classList.remove('on');
   var t=getTest(V.test), st=T(V.test), p=t.passages[V.p], hl=(st.hl[V.p]||[]);
-  var h='<div class="ptools"><button class="ghost mk" data-act="hl">✎ Highlight</button><button class="ghost" data-act="hlclear">Clear</button><small>Select text, then tap Highlight</small></div>';
+  var h='<div class="ptools"><button class="ghost mk" data-act="hl">✎ Highlight</button><button class="ghost" data-act="hlundo">↶ Undo</button><button class="ghost" data-act="hlclear">Clear all</button><small>Tap a yellow part to remove it</small></div>';
   h+='<h2>'+esc(p.title)+'</h2><div class="sub">Reading Passage '+(V.p+1)+' · Questions '+p.groups[0].items[0].n+'–'+p.groups[p.groups.length-1].items.slice(-1)[0].n+'</div>';
   p.paras.forEach(function(tx,i){
     var hs=hl.filter(function(x){return x[0]===i;}).map(function(x){return [x[1],x[2]];});
@@ -409,6 +414,8 @@ function render(){
   if(V.view==='home') renderHome(); else if(V.view==='tips') renderTips();
   else { renderExam(); tick=setInterval(function(){ var st=T(V.test); if(st.mode!=='doing'||document.hidden) return; st.elapsed=(st.elapsed||0)+1; updTimer(); if(st.elapsed%20===0) saveLocal(); },1000); }
 }
+var hlPick=null;
+function hidePop(){ var p=$('#hlpop'); if(p) p.classList.remove('on'); hlPick=null; [].forEach.call(document.querySelectorAll('.hl.sel'),function(e){e.classList.remove('sel');}); }
 function gotoQ(n){
   var r=IDX[V.test].m[n]; if(r.p!==V.p){V.p=r.p; V.ev=null; renderTop(); renderPassage(); renderQuestions(); renderFoot();}
   document.body.classList.remove('show-p'); document.body.classList.add('show-q'); updFlip();
@@ -446,8 +453,15 @@ function pwOk(){ if($('#pw').value===PW) return true; $('#perr').textContent='Sa
 
 document.addEventListener('click',function(ev){
   var hlSpan=ev.target.closest&&ev.target.closest('.hl');
-  if(hlSpan&&V.view==='exam'){ var st0=T(V.test), pi=+hlSpan.parentElement.dataset.p, o=+hlSpan.dataset.o;
-    st0.hl[V.p]=(st0.hl[V.p]||[]).filter(function(x){return !(x[0]===pi&&x[1]<=o&&x[2]>o);}); save(); var sc0=$('#pp').scrollTop; renderPassage(); $('#pp').scrollTop=sc0; return; }
+  var pop=$('#hlpop');
+  if(hlSpan&&V.view==='exam'){
+    var pi=+hlSpan.parentElement.dataset.p, o=+hlSpan.dataset.o, hit=(T(V.test).hl[V.p]||[]).filter(function(x){return x[0]===pi&&x[1]<=o&&x[2]>o;})[0];
+    if(hit){ hlPick={pi:pi,o:o}; [].forEach.call(document.querySelectorAll('.hl.sel'),function(e){e.classList.remove('sel');});
+      [].forEach.call(hlSpan.parentElement.querySelectorAll('.hl'),function(e){var eo=+e.dataset.o; if(eo>=hit[1]&&eo<hit[2]) e.classList.add('sel');});
+      pop.classList.add('on'); var w=pop.offsetWidth, x=Math.max(8,Math.min(window.innerWidth-w-8,ev.clientX-w/2)), y=ev.clientY-56; if(y<50) y=ev.clientY+24;
+      pop.style.left=x+'px'; pop.style.top=y+'px'; return; }
+  }
+  if(!(ev.target.closest&&ev.target.closest('#hlpop'))) hidePop();
   var b=ev.target.closest&&ev.target.closest('[data-act]'); if(!b) { if(ev.target.id==='modal') closeModal(); return; }
   var act=b.dataset.act, st=V.test?T(V.test):null;
   if(act==='tab'){V.view=b.dataset.v; render();}
@@ -471,7 +485,10 @@ document.addEventListener('click',function(ev){
   else if(act==='ev'){ var r=IDX[V.test].m[+b.dataset.n], p=getTest(V.test).passages[r.p], s=p.paras[r.it.ev[0]].indexOf(r.it.ev[1]);
     V.ev={p:r.p,para:r.it.ev[0],s:s,e:s+r.it.ev[1].length}; document.body.classList.remove('show-q'); document.body.classList.add('show-p'); updFlip(); renderPassage(); }
   else if(act==='hl'){ if(!lastSel){toast('Select some words in the passage first.');return;} st.hl[V.p]=st.hl[V.p]||[]; st.hl[V.p].push([lastSel.p,lastSel.s,lastSel.e]); lastSel=null; try{getSelection().removeAllRanges();}catch(e){} save(); var sc=$('#pp').scrollTop; renderPassage(); $('#pp').scrollTop=sc; }
-  else if(act==='hlclear'){ st.hl[V.p]=[]; save(); var sc2=$('#pp').scrollTop; renderPassage(); $('#pp').scrollTop=sc2; }
+  else if(act==='hlremove'){ if(hlPick){ var hp=hlPick; st.hl[V.p]=(st.hl[V.p]||[]).filter(function(x){return !(x[0]===hp.pi&&x[1]<=hp.o&&x[2]>hp.o);}); save(); } hidePop(); var sc3=$('#pp').scrollTop; renderPassage(); $('#pp').scrollTop=sc3; }
+  else if(act==='hlundo'){ var L=st.hl[V.p]||[]; if(!L.length){toast('Nothing to undo.');return;} L.pop(); save(); var sc4=$('#pp').scrollTop; renderPassage(); $('#pp').scrollTop=sc4; }
+  else if(act==='hlclear'){ if(!(st.hl[V.p]||[]).length){toast('There are no highlights here.');return;} modal('<h3>Remove all highlights?</h3><p>This removes every highlight in this passage. To remove just one, tap the yellow part.</p><div class="acts"><button class="ghost" data-act="close">Keep them</button><button class="big" data-act="hlclear2">Remove all</button></div>'); }
+  else if(act==='hlclear2'){ st.hl[V.p]=[]; save(); closeModal(); var sc2=$('#pp').scrollTop; renderPassage(); $('#pp').scrollTop=sc2; }
   else if(act==='coins'){coinDlg();}
   else if(act==='saverw'){ if(!pwOk()) return; var x=parseFloat($('#rw').value); if(isNaN(x)||x<0){$('#perr').textContent='Số xu không hợp lệ.';return;} S.rewarded=x; save(true); closeModal(); renderTop(); toast('Đã lưu.'); }
   else if(act==='reset'){ if(!pwOk()) return; delete S.tests[$('#rt').value]; save(true); closeModal(); V.view='home'; V.test=null; render(); toast('Test reset.'); }
@@ -491,6 +508,7 @@ document.addEventListener('selectionchange',function(){
   if(e>s) lastSel={p:+a.dataset.p,s:s,e:e};
 });
 window.addEventListener('pagehide',saveLocal);
+document.addEventListener('scroll',function(e){ if(e.target&&e.target.id==='pp') hidePop(); },true);
 window.__T__={S:function(){return S;},V:V,TESTS:TESTS,IDX:IDX};
 render(); initDb();
 })();
